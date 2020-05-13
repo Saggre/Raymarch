@@ -50,6 +50,7 @@
 				return o;
 			}
 
+			// Return distance from p to nearest point on object
 			float GetDist(in float3 p) {
 
 				float3 infp = infinite(p, 5);
@@ -61,7 +62,7 @@
 				return d;
 			}
 
-
+			// 
 			float3 GetNormal(in float3 p) {
 				float2 e = float2(1e-2, 0);
 				float3 n = GetDist(p) - float3(
@@ -73,8 +74,7 @@
 				return normalize(n);
 			}
 
-			
-
+			// Return distance from ro to object in ray direction rd
 			float Raymarch(in float3 ro, in float3 rd) {
 				float dO = 0;
 				float dS;
@@ -99,12 +99,29 @@
 				float3 n = GetNormal(p);
 
 				float dif = clamp(dot(n, l), 0., 1.);
-				float d = Raymarch(p + n * SURF_DIST * 2., l);
+				//float d = Raymarch(p + n * SURF_DIST * 2., l);
 				/*if (d < length(lightPos - p)) {
 					dif *= .1;
 				}*/
 
 				return dif;
+			}
+
+			float shadow(float3 p) {
+				float3 l = -normalize(_WorldSpaceLightPos0.xyz);// normalize(lightPos - p);
+
+				float3 ro = p + -l * MAX_DIST;
+				float3 rd = l;
+
+				float d = Raymarch(ro, rd);
+
+				float3 np = ro + rd * d;
+				float d2 = distance(p, np);
+				if (d2 > 0.1 && d2 < 50) {
+					return 0;
+				}
+
+				return 1;
 			}
 
 			fixed4 frag(v2f i) : SV_Target
@@ -121,8 +138,9 @@
 					float3 p = ro + rd * d;
 					//float3 n = GetNormal(p);
 					float dif = GetLight(p);
-					float shadow = Softshadow(p, normalize(_WorldSpaceLightPos0.xyz), 0.01, 3.0, 1.0 / 8.0);
-					dif *= shadow;
+
+					float s = shadow(p);
+					dif *= s;
 					col.rgb = float3(dif, dif, dif);
 				}
 				else {
