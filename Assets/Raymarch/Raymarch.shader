@@ -2,7 +2,7 @@
 {
 	Properties
 	{
-		_MainTex("Texture", 2D) = "white" {}
+		_Cube("Cubemap", CUBE) = "" {}
 	}
 		SubShader
 	{
@@ -19,9 +19,9 @@
 			#include "Primitives.hlsl"
 			#include "Utils.hlsl"
 
-			#define MAX_STEPS 100
-			#define MAX_DIST 100
-			#define SURF_DIST 1e-3
+			#define MAX_STEPS 150
+			#define MAX_DIST 500
+			#define SURF_DIST 1e-2
 
 			struct appdata
 			{
@@ -37,29 +37,47 @@
 				float3 hitPos : TEXCOORD2;
 			};
 
-			sampler2D _MainTex;
-			float4 _MainTex_ST;
+			samplerCUBE _Cube;
+			uniform RWStructuredBuffer<float3> raymarchObjectData : register(u1);
 
 			v2f vert(appdata v)
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
-				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				o.ro = _WorldSpaceCameraPos;
 				o.hitPos = mul(unity_ObjectToWorld, v.vertex);
 				return o;
 			}
 
+
+
+			/*float DE(float3 z)
+			{
+				float r;
+				int n = 0;
+				while (n < Iterations) {
+					if (z.x + z.y < 0) z.xy = -z.yx; // fold 1
+					if (z.x + z.z < 0) z.xz = -z.zx; // fold 2
+					if (z.y + z.z < 0) z.zy = -z.yz; // fold 3
+					z = z * Scale - Offset * (Scale - 1.0);
+					n++;
+				}
+				return (length(z)) * pow(Scale, -float(n));
+			}*/
+
 			// Return distance from p to nearest point on object
 			float GetDist(in float3 p) {
 
-				float3 infp = infinite(p, 5);
+				float3 infp = p;
+				boxFold(infp, 5.+p.x);
 
 				//return smin(smin(sdBox(p, float3(1.0, 1.0, 1.0)), sdTorus(p, float2(2.0, 0.5)), 1),sdPlane(p + float3(0,3,0)),1);
-				return min(sdOctahedron(p, 2), sdPlane(p + float3(0, 3, 0)));
+				//float geom = sdPlane(p + float3(0, 3, 0));
+				//geom = opUnion(geom, opSubtraction(sdSphere(p + float3(2, 0, 0), 1.0), sdOctahedron(p, 2)));
+				//geom = opUnion(geom, sdSphere(p + float3(4,0,0), 1.0));
+				float geom = sdSphere(infp + float3(1.0,0,0), 1.0);
 
-				float d = length(p) - 1.;
-				return d;
+				return geom;
 			}
 
 			// 
@@ -107,21 +125,40 @@
 				return dif;
 			}
 
-			float shadow(float3 p) {
-				float3 l = -normalize(_WorldSpaceLightPos0.xyz);// normalize(lightPos - p);
+			float ref(float3 i, float3 n) {
+				return i - 2.0 * dot(n, i) * n;
+			}
 
-				float3 ro = p + -l * MAX_DIST;
-				float3 rd = l;
+			float GetReflection(in float3 p, in float oldrd) {
+				float3 n = GetNormal(p);
 
-				float d = Raymarch(ro, rd);
+				float3 rd = reflect(oldrd, n);
+				//float3 ro = p + rd * 0.02;
 
-				float3 np = ro + rd * d;
-				float d2 = distance(p, np);
-				if (d2 > 0.1 && d2 < 50) {
-					return 0;
+				return 0.0;
+				/*float d = Raymarch(ro, rd);
+
+				float3 p2 = ro + rd * d;
+				//return p2/6;
+				float dif = GetLight(p2);
+
+				return dif;*/
+			}
+
+			float shadow(float3 p)
+			{
+				float3 l = -normalize(_WorldSpaceLightPos0.xyz);
+				float3 ro = p;
+				float3 rd = -l;
+
+				for (float t = 0.04; t < 30.0; )
+				{
+					float h = GetDist(ro + rd * t);
+					if (h < 0.001)
+						return 0.0;
+					t += h;
 				}
-
-				return 1;
+				return 1.0;
 			}
 
 			fixed4 frag(v2f i) : SV_Target
@@ -139,8 +176,12 @@
 					//float3 n = GetNormal(p);
 					float dif = GetLight(p);
 
-					float s = shadow(p);
+					//float ref = GetReflection(p, rd);
+
+					float s = clamp(shadow(p) + 0.3,0.0,1.0);
 					dif *= s;
+
+					//dif += ref * 0.5;
 					col.rgb = float3(dif, dif, dif);
 				}
 				else {
