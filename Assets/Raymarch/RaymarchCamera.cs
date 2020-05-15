@@ -14,16 +14,16 @@ public class RaymarchCamera : MonoBehaviour
      */
     struct RaymarchObjectData
     {
-        int shapeType;
+        public int shapeType;
 
-        Vector3 materialOptions;
-        Color color;
+        public Vector3 materialOptions;
+        public Color color;
 
-        Vector3 position;
-        Vector3 eulerAngles;
-        Vector3 scale;
+        public Vector3 position;
+        public Vector3 eulerAngles;
+        public Vector3 scale;
 
-        Vector3 primitiveOptions;
+        public Vector3 primitiveOptions;
 
         public RaymarchObjectData(IPrimitive primitive)
         {
@@ -38,7 +38,7 @@ public class RaymarchCamera : MonoBehaviour
 
         public static int byteSize()
         {
-            return 18 * 4;
+            return 20 * 4;
         }
     }
 
@@ -47,25 +47,16 @@ public class RaymarchCamera : MonoBehaviour
     Mesh raymarchPlane;
     float raymarchPlaneDistance;
 
-    List<IPrimitive> scenePrimitives;
+    Primitive[] scenePrimitives;
     ComputeBuffer objectsBuffer;
     RaymarchObjectData[] objectsDataBuffer;
 
     /**
      * Get raymarching primitives from scene
      */
-    List<IPrimitive> GetRaymarchPrimitives()
+    Primitive[] GetRaymarchPrimitives()
     {
-        return FindObjectsOfType(typeof(MonoBehaviour)).Select(a =>
-        {
-            if (a is IPrimitive)
-            {
-                return a as IPrimitive;
-            }
-
-            return null;
-        }).ToList();
-
+        return FindObjectsOfType(typeof(Primitive)) as Primitive[];
     }
 
     /**
@@ -106,25 +97,51 @@ public class RaymarchCamera : MonoBehaviour
 
         // Get raymarched objects in scene
         scenePrimitives = GetRaymarchPrimitives();
-        Debug.Log(scenePrimitives);
 
         // Create data buffer from raymarch objects properties
         objectsDataBuffer = scenePrimitives.Select<IPrimitive, RaymarchObjectData>(a =>
         {
             return new RaymarchObjectData(a);
         }).ToArray();
-        objectsBuffer = new ComputeBuffer(objectsDataBuffer.Length, RaymarchObjectData.byteSize(), ComputeBufferType.Default);
+
+        objectsDataBuffer.ToList().ForEach(a =>
+        {
+            Debug.Log(a.shapeType);
+        });
+
+        objectsBuffer = new ComputeBuffer(objectsDataBuffer.Length, RaymarchObjectData.byteSize());
+        objectsBuffer.SetData(objectsDataBuffer);
+
+    }
+
+    void Update()
+    {
+
     }
 
     void OnPostRender()
     {
-        if (!raymarchPlane)
+        if (!raymarchPlane || objectsBuffer == null)
         {
             return;
         }
 
+        //Graphics.ClearRandomWriteTargets();
         raymarchMaterial.SetPass(0);
+        raymarchMaterial.SetBuffer("raymarchObjectData", objectsBuffer);
+        //Graphics.SetRandomWriteTarget(1, objectsBuffer);
         Graphics.DrawMeshNow(raymarchPlane, transform.position + transform.forward * raymarchPlaneDistance, transform.rotation);
+    }
+
+    /**
+     * Cleanup
+     */
+    void OnDestroy()
+    {
+        if (objectsBuffer != null)
+        {
+            objectsBuffer.Dispose();
+        }
     }
 
 }

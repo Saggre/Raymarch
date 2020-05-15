@@ -12,6 +12,7 @@
 		Pass
 		{
 			CGPROGRAM
+			#pragma target 5.0
 			#pragma vertex vert
 			#pragma fragment frag
 
@@ -22,6 +23,20 @@
 			#define MAX_STEPS 150
 			#define MAX_DIST 500
 			#define SURF_DIST 1e-2
+
+			struct RaymarchObjectData
+			{
+				int shapeType;
+
+				float3 materialOptions;
+				float4 color;
+
+				float3 position;
+				float3 eulerAngles;
+				float3 scale;
+
+				float3 primitiveOptions;
+			};
 
 			struct appdata
 			{
@@ -38,7 +53,7 @@
 			};
 
 			samplerCUBE _Cube;
-			uniform RWStructuredBuffer<float3> raymarchObjectData : register(u1);
+			uniform RWStructuredBuffer<RaymarchObjectData> raymarchObjectData : register(u1);
 
 			v2f vert(appdata v)
 			{
@@ -49,33 +64,46 @@
 				return o;
 			}
 
+			float raymarchObjectSDF(in float3 p, RaymarchObjectData shape) {
+				float d = 1000.0;
 
-
-			/*float DE(float3 z)
-			{
-				float r;
-				int n = 0;
-				while (n < Iterations) {
-					if (z.x + z.y < 0) z.xy = -z.yx; // fold 1
-					if (z.x + z.z < 0) z.xz = -z.zx; // fold 2
-					if (z.y + z.z < 0) z.zy = -z.yz; // fold 3
-					z = z * Scale - Offset * (Scale - 1.0);
-					n++;
+				switch (shape.shapeType) {
+					case 0:
+						d = sdSphere(p, shape.materialOptions.r);
+						break;
+					case 1:
+						d = sdBox(p, float3(1,1,1));
+						break;
 				}
-				return (length(z)) * pow(Scale, -float(n));
-			}*/
+
+				return d;
+			}
 
 			// Return distance from p to nearest point on object
 			float GetDist(in float3 p) {
 
+				float geom = 1000.0;
+				//return geom;
+
+				uint numStructs;
+				uint stride;
+
+				raymarchObjectData.GetDimensions(numStructs, stride);
+
+				for (uint i = 0; i < numStructs; i++) {
+					RaymarchObjectData shape = raymarchObjectData[i];
+					geom = min(geom, raymarchObjectSDF(p, shape));
+				}
+
 				float3 infp = p;
-				boxFold(infp, 5.+p.x);
+
+				//boxFold(infp, 5. + p.x);
 
 				//return smin(smin(sdBox(p, float3(1.0, 1.0, 1.0)), sdTorus(p, float2(2.0, 0.5)), 1),sdPlane(p + float3(0,3,0)),1);
 				//float geom = sdPlane(p + float3(0, 3, 0));
 				//geom = opUnion(geom, opSubtraction(sdSphere(p + float3(2, 0, 0), 1.0), sdOctahedron(p, 2)));
 				//geom = opUnion(geom, sdSphere(p + float3(4,0,0), 1.0));
-				float geom = sdSphere(infp + float3(1.0,0,0), 1.0);
+				//float geom = sdSphere(infp + float3(1.0,0,0), 1.0);
 
 				return geom;
 			}
@@ -163,6 +191,7 @@
 
 			fixed4 frag(v2f i) : SV_Target
 			{
+
 				float2 uv = i.uv - .5;
 				float3 ro = i.ro;
 				float3 rd = normalize(i.hitPos - ro);
@@ -191,6 +220,7 @@
 				// sample the texture
 				//col.rgb = rd;
 				return col;
+
 			}
 		ENDCG
 	}
