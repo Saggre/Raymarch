@@ -7,6 +7,9 @@ public enum PrimitiveShapeType
 {
     sphere,
     box,
+    plane,
+    ellipsoid,
+    torus
 }
 
 public interface IPrimitive

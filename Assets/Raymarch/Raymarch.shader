@@ -23,6 +23,7 @@
 			#define MAX_STEPS 150
 			#define MAX_DIST 500
 			#define SURF_DIST 1e-2
+			#define MAX_OBJECTS 64
 
 			struct RaymarchObjectData
 			{
@@ -73,48 +74,63 @@
 						d = sdSphere(np, shape.primitiveOptions.r);
 						break;
 					case 1:
-						d = sdBox(np, float3(1,1,1));
+						d = sdBox(np, shape.primitiveOptions.rrr);
+						break;
+					case 2:
+						d = sdPlane(np);
+						break;
+					case 3:
+						d = sdEllipsoid(np, shape.primitiveOptions.rgb);
+						break;
+					case 4:
+						d = sdTorus(np, shape.primitiveOptions.rg);
 						break;
 				}
 
 				return d;
 			}
 
+			float max3(float3 v) {
+				return max(max(v.x, v.y), v.z);
+			}
+
 			// Return distance from p to nearest point on object
-			float GetDist(in float3 p, out RaymarchObjectData closestObject) {
+			float GetDist(in float3 p, out float3 col) {
 
 				float geom = 1000.0;
 
 				uint numStructs;
 				uint stride;
 
+				float3 c = 0.0;
+				float td = 0.0;
+
+
 				raymarchObjectData.GetDimensions(numStructs, stride);
 
-				for (uint i = 0; i < numStructs; i++) {
+				float4 cd[MAX_OBJECTS];
+
+				for (uint i = 0; i < numStructs && i < MAX_OBJECTS; i++) {
 					RaymarchObjectData shape = raymarchObjectData[i];
 					float d = raymarchObjectSDF(p, shape);
-					if (d < geom) {
-						closestObject = shape;
-					}
+					cd[i] = float4(shape.color.rgb, d);
+					td += d;
 					geom = smin(geom, d, 0.5);
 				}
 
-				float3 infp = p;
+				for (uint i = 0; i < numStructs && i < MAX_OBJECTS; i++) {
+					c += cd[i].rgb / (cd[i].w);
+				}
 
-				//boxFold(infp, 5. + p.x);
+				col = c / max(max3(c), 1.0);
 
-				//return smin(smin(sdBox(p, float3(1.0, 1.0, 1.0)), sdTorus(p, float2(2.0, 0.5)), 1),sdPlane(p + float3(0,3,0)),1);
-				//float geom = sdPlane(p + float3(0, 3, 0));
-				//geom = opUnion(geom, opSubtraction(sdSphere(p + float3(2, 0, 0), 1.0), sdOctahedron(p, 2)));
-				//geom = opUnion(geom, sdSphere(p + float3(4,0,0), 1.0));
-				//float geom = sdSphere(infp + float3(1.0,0,0), 1.0);
 
 				return geom;
 			}
 
 			float GetDist(in float3 p) {
-				RaymarchObjectData co;
-				return GetDist(p, co);
+				float3 col;
+				return GetDist(p, col);
 			}
 
 			// 
@@ -130,13 +146,13 @@
 			}
 
 			// Return distance from ro to object in ray direction rd
-			float Raymarch(in float3 ro, in float3 rd, inout RaymarchObjectData hitObject) {
+			float Raymarch(in float3 ro, in float3 rd, inout float3 col) {
 				float dO = 0;
 				float dS;
 
 				for (int i = 0; i < MAX_STEPS; i++) {
 					float3 p = ro + dO * rd;
-					dS = GetDist(p, hitObject);
+					dS = GetDist(p, col);
 					dO += dS;
 					if (dS < SURF_DIST || dO > MAX_DIST) {
 						break;
@@ -200,13 +216,13 @@
 
 			fixed4 frag(v2f i) : SV_Target
 			{
-				RaymarchObjectData hitObject;
+				float3 color;
 
 				float2 uv = i.uv - .5;
 				float3 ro = i.ro;
 				float3 rd = normalize(i.hitPos - ro);
 
-				float d = Raymarch(ro, rd, hitObject);
+				float d = Raymarch(ro, rd, color);
 
 				fixed4 col = 0;
 
@@ -217,11 +233,10 @@
 
 					//float ref = GetReflection(p, rd);
 
-					float s = clamp(shadow(p) + 0.3,0.0,1.0);
-					dif *= s;
+					float s = clamp(shadow(p) + 0.3, 0.0, 1.0);
 
 					//dif += ref * 0.5;
-					col.rgb = hitObject.color.rgb * dif;
+					col.rgb = color.rgb * dif * s;
 				}
 				else {
 					discard;

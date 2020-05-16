@@ -1,7 +1,6 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿
 using UnityEngine;
-public class Sphere : Primitive, IPrimitive
+public class Torus : Primitive, IPrimitive
 {
     [SerializeField]
     Color color = Color.white;
@@ -16,7 +15,11 @@ public class Sphere : Primitive, IPrimitive
 
     [Range(0, 100)]
     [SerializeField]
-    float radius = 1.0f;
+    float torusA = 1.0f;
+
+    [Range(0, 100)]
+    [SerializeField]
+    float torusB = 1.0f;
 
     public override Color GetColor()
     {
@@ -30,12 +33,12 @@ public class Sphere : Primitive, IPrimitive
 
     public override Vector3 GetPrimitiveOptions()
     {
-        return new Vector3(radius, 0.0f, 0.0f);
+        return new Vector3(torusA, torusB, 0.0f);
     }
 
     public override PrimitiveShapeType GetShapeType()
     {
-        return PrimitiveShapeType.sphere;
+        return PrimitiveShapeType.torus;
     }
 
 }

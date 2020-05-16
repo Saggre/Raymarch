@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿
 using UnityEngine;
 public class Box : Primitive, IPrimitive
 {
@@ -30,7 +29,7 @@ public class Box : Primitive, IPrimitive
 
     public override Vector3 GetPrimitiveOptions()
     {
-        return new Vector3(size, 0.0f, 0.0f);
+        return new Vector3(1.0f, 0.0f, 0.0f);
     }
 
     public override PrimitiveShapeType GetShapeType()
@@ -38,15 +37,4 @@ public class Box : Primitive, IPrimitive
         return PrimitiveShapeType.box;
     }
 
-    // Start is called before the first frame update
-    void Start()
-    {
-
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-
-    }
 }
