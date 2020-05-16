@@ -97,20 +97,7 @@ public class RaymarchCamera : MonoBehaviour
 
         // Get raymarched objects in scene
         scenePrimitives = GetRaymarchPrimitives();
-
-        // Create data buffer from raymarch objects properties
-        objectsDataBuffer = scenePrimitives.Select<IPrimitive, RaymarchObjectData>(a =>
-        {
-            return new RaymarchObjectData(a);
-        }).ToArray();
-
-        objectsDataBuffer.ToList().ForEach(a =>
-        {
-            Debug.Log(a.shapeType);
-        });
-
-        objectsBuffer = new ComputeBuffer(objectsDataBuffer.Length, RaymarchObjectData.byteSize());
-        objectsBuffer.SetData(objectsDataBuffer);
+        objectsBuffer = new ComputeBuffer(scenePrimitives.Length, RaymarchObjectData.byteSize());
 
     }
 
@@ -126,10 +113,16 @@ public class RaymarchCamera : MonoBehaviour
             return;
         }
 
-        //Graphics.ClearRandomWriteTargets();
+        objectsDataBuffer = scenePrimitives.Select<IPrimitive, RaymarchObjectData>(a =>
+        {
+            return new RaymarchObjectData(a);
+        }).ToArray();
+        objectsBuffer.SetData(objectsDataBuffer);
+
+        Graphics.ClearRandomWriteTargets();
         raymarchMaterial.SetPass(0);
         raymarchMaterial.SetBuffer("raymarchObjectData", objectsBuffer);
-        //Graphics.SetRandomWriteTarget(1, objectsBuffer);
+        Graphics.SetRandomWriteTarget(1, objectsBuffer);
         Graphics.DrawMeshNow(raymarchPlane, transform.position + transform.forward * raymarchPlaneDistance, transform.rotation);
     }
 

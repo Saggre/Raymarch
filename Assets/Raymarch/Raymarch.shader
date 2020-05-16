@@ -66,13 +66,14 @@
 
 			float raymarchObjectSDF(in float3 p, RaymarchObjectData shape) {
 				float d = 1000.0;
+				float3 np = p - shape.position;
 
 				switch (shape.shapeType) {
 					case 0:
-						d = sdSphere(p, shape.materialOptions.r);
+						d = sdSphere(np, shape.primitiveOptions.r);
 						break;
 					case 1:
-						d = sdBox(p, float3(1,1,1));
+						d = sdBox(np, float3(1,1,1));
 						break;
 				}
 
@@ -80,10 +81,9 @@
 			}
 
 			// Return distance from p to nearest point on object
-			float GetDist(in float3 p) {
+			float GetDist(in float3 p, out RaymarchObjectData closestObject) {
 
 				float geom = 1000.0;
-				//return geom;
 
 				uint numStructs;
 				uint stride;
@@ -92,7 +92,11 @@
 
 				for (uint i = 0; i < numStructs; i++) {
 					RaymarchObjectData shape = raymarchObjectData[i];
-					geom = min(geom, raymarchObjectSDF(p, shape));
+					float d = raymarchObjectSDF(p, shape);
+					if (d < geom) {
+						closestObject = shape;
+					}
+					geom = smin(geom, d, 0.5);
 				}
 
 				float3 infp = p;
@@ -108,6 +112,11 @@
 				return geom;
 			}
 
+			float GetDist(in float3 p) {
+				RaymarchObjectData co;
+				return GetDist(p, co);
+			}
+
 			// 
 			float3 GetNormal(in float3 p) {
 				float2 e = float2(1e-2, 0);
@@ -121,13 +130,13 @@
 			}
 
 			// Return distance from ro to object in ray direction rd
-			float Raymarch(in float3 ro, in float3 rd) {
+			float Raymarch(in float3 ro, in float3 rd, inout RaymarchObjectData hitObject) {
 				float dO = 0;
 				float dS;
 
 				for (int i = 0; i < MAX_STEPS; i++) {
 					float3 p = ro + dO * rd;
-					dS = GetDist(p);
+					dS = GetDist(p, hitObject);
 					dO += dS;
 					if (dS < SURF_DIST || dO > MAX_DIST) {
 						break;
@@ -191,12 +200,13 @@
 
 			fixed4 frag(v2f i) : SV_Target
 			{
+				RaymarchObjectData hitObject;
 
 				float2 uv = i.uv - .5;
 				float3 ro = i.ro;
 				float3 rd = normalize(i.hitPos - ro);
 
-				float d = Raymarch(ro, rd);
+				float d = Raymarch(ro, rd, hitObject);
 
 				fixed4 col = 0;
 
@@ -211,7 +221,7 @@
 					dif *= s;
 
 					//dif += ref * 0.5;
-					col.rgb = float3(dif, dif, dif);
+					col.rgb = hitObject.color.rgb * dif;
 				}
 				else {
 					discard;

@@ -152,7 +152,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4082094385d6fc94382ee5594a0d5256, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  color: {r: 1, g: 1, b: 1, a: 1}
+  color: {r: 0, g: 1, b: 0.011921406, a: 1}
   reflective: 0.1
   shininess: 0.5
   radius: 1
@@ -341,7 +341,7 @@ MonoBehaviour:
   color: {r: 1, g: 1, b: 1, a: 1}
   reflective: 0.1
   shininess: 0.5
-  radius: 1
+  radius: 2
 --- !u!4 &1666034354
 Transform:
   m_ObjectHideFlags: 0
